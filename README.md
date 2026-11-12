@@ -83,3 +83,7 @@ src/
 assets/         app icon
 scripts/        icon generator (npm run icon)
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
