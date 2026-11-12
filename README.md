@@ -60,9 +60,11 @@ You need **Claude Desktop** installed: <https://claude.ai/download>.
 
 Then get Multi Claude Desktop:
 
-**Option A — Download a build** (when available):
-see the [**Releases**](https://github.com/tohidmalik002/multi-claude-desktop/releases) page.
-Extract the ZIP anywhere and run **`Multi Claude Desktop.exe`**.
+**Option A — Download the ready-made build (easiest):**
+
+Go to the [**Releases**](https://github.com/tohidmalik002/multi-claude-desktop/releases/latest)
+page and download **`Multi-Claude-Desktop-<version>-win-x64.zip`**. Extract it anywhere and run
+**`Multi Claude Desktop.exe`** inside. It is portable: no installer.
 
 > **SmartScreen note:** builds are **not code-signed**, so Windows may warn "unknown
 > publisher". Click **More info → Run anyway**.
@@ -185,7 +187,7 @@ multi-claude-desktop/
 
 ## Roadmap
 
-- Release builds (portable ZIP) on the Releases page.
+- An installer with Start-menu shortcuts, next to the portable ZIP.
 - Rename a profile from the app.
 - Tested Linux support.
 
