@@ -1,0 +1,17 @@
+{
+  "name": "multi-claude-desktop",
+  "productName": "Multi Claude Desktop",
+  "version": "0.1.0",
+  "description": "Run several Claude Desktop accounts side by side, one isolated profile folder each",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-packager . \"Multi Claude Desktop\" --platform=win32 --arch=x64 --out=dist --overwrite --asar --executable-name=\"Multi Claude Desktop\" --icon=assets/icon.ico --ignore=^/dist --ignore=^/scripts",
+    "icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-icon.ps1"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0",
+    "electron-packager": "^17.1.2"
+  }
+}

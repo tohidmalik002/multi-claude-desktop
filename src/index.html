@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"
+  />
+  <title>Multi Claude Desktop</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <img class="brand-mark" src="../assets/icon.png" alt="" />
+        <div>
+          <div class="brand-title">Multi Claude Desktop</div>
+          <div class="brand-sub" id="platform-label">One folder per account</div>
+        </div>
+      </div>
+
+      <div class="list-label"><span>Profiles</span><span class="list-count" id="profile-count"></span></div>
+      <ul class="profile-list" id="profile-list"></ul>
+
+      <div class="root-box">
+        <div class="root-label">Library folder</div>
+        <div class="root-path" id="root-path">—</div>
+        <div class="root-actions">
+          <button class="link" id="btn-open-root" type="button">Open</button>
+          <button class="link" id="btn-change-root" type="button">Change…</button>
+        </div>
+      </div>
+      <div class="sidebar-foot">
+        <button class="link" id="btn-app-shortcut" type="button">Add launcher to desktop</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div class="topbar-title" id="topbar-title">Profiles</div>
+        <div class="topbar-actions">
+          <button class="primary small" id="btn-new" type="button">+ New profile</button>
+          <button class="ghost" id="btn-refresh" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="setup" id="setup" hidden>
+        <h1>Where should profiles be stored?</h1>
+        <p>
+          Each profile is a folder holding one Claude account's sign-in, local
+          sessions and MCP settings. Pick a folder used only for profiles.
+        </p>
+        <code class="setup-path" id="setup-path"></code>
+        <div class="setup-actions">
+          <button class="primary" id="btn-use-suggested" type="button">Use this folder</button>
+          <button class="secondary" id="btn-choose-root" type="button">Choose another folder…</button>
+        </div>
+        <p class="setup-note">
+          If the folder you choose already holds other files, a claude-accounts
+          folder is created inside it. You can change this later.
+        </p>
+      </section>
+
+      <section class="detail" id="detail"></section>
+
+      <section class="empty" id="empty" hidden>
+        <h1>No profiles yet</h1>
+        <p>
+          Each profile is one folder holding its own Claude account: cookies,
+          history cache, window state and MCP config.
+        </p>
+        <button class="primary" id="btn-empty-new" type="button">Create the first profile</button>
+      </section>
+
+      <div class="toast" id="toast" hidden></div>
+    </main>
+  </div>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <h2>New profile</h2>
+      <p>Lowercase handle, e.g. claude-work. Leave the box empty to accept the suggestion.</p>
+      <form id="new-form">
+        <input
+          id="new-name"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="claude-1"
+        />
+        <div class="modal-actions">
+          <button class="ghost" id="btn-cancel-new" type="button">Cancel</button>
+          <button class="primary" type="submit">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
