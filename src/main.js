@@ -68,6 +68,8 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     title: 'Multi Claude Desktop',
     autoHideMenuBar: true,
+    // Screenshot runs stay hidden so they never take keyboard focus.
+    show: !process.env.CLAUDE_PROFILES_CAPTURE,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

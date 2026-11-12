@@ -90,8 +90,7 @@ The app is written to `dist/Multi Claude Desktop-win32-x64/Multi Claude Desktop.
 > Avoid **Continue with Google** for profiles: that sign-in finishes in your browser and can
 > land in the default Claude window instead of the profile.
 
-The launcher shortcut can be added or removed later with **Desktop shortcut** at the bottom
-of the sidebar.
+The launcher shortcut can be added or removed later with **Desktop shortcut** under the logo.
 
 ## Run from source
 
