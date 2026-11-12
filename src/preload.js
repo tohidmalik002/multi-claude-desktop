@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('claudeProfiles', {
   chooseRoot: () => ipcRenderer.invoke('settings:choose-root'),
   useSuggestedRoot: () => ipcRenderer.invoke('settings:use-suggested-root'),
   openRoot: () => ipcRenderer.invoke('settings:open-root'),
+  openRepo: () => ipcRenderer.invoke('app:open-repo'),
   onState: (handler) => {
     ipcRenderer.on('profiles:state', (_event, state) => handler(state));
   },

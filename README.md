@@ -84,6 +84,15 @@ assets/         app icon
 scripts/        icon generator (npm run icon)
 ```
 
+## Author
+
+Built by [tohidmalik002](https://github.com/tohidmalik002).
+If it saves you time, a star on the repo helps others find it.
+
+Bug reports and ideas are welcome as
+[issues](https://github.com/tohidmalik002/multi-claude-desktop/issues);
+pull requests too.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

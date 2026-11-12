@@ -21,6 +21,8 @@ const shortcuts = require('./shortcuts');
 
 const STATE_REFRESH_MS = 2000;
 
+const REPO_URL = 'https://github.com/tohidmalik002/multi-claude-desktop';
+
 /** A window this young counts as its profile's even before it writes a log. */
 const BOOT_GRACE_MS = 30000;
 
@@ -204,6 +206,7 @@ function buildState() {
     desktopPath: platform.findDesktopExecutable(),
     platform: process.platform,
     appShortcut: shortcuts.appShortcutExists(),
+    appVersion: app.getVersion(),
     profiles: profiles.listProfiles().map((profile) => ({
       ...profile,
       desktopOpen: isDesktopRunning(profile.folder),
@@ -351,6 +354,8 @@ function registerHandlers() {
     pushState();
     return buildState();
   });
+
+  ipcMain.handle('app:open-repo', () => shell.openExternal(REPO_URL));
 
   ipcMain.handle('settings:open-root', () => {
     const root = settings.getProfilesRoot();

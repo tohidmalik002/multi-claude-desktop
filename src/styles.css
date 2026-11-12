@@ -264,6 +264,16 @@ button {
   color: var(--accent);
 }
 
+.sidebar-foot .about {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.sidebar-foot .about .link {
+  font-size: 11px;
+}
+
 /* Content */
 
 .content {

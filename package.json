@@ -3,6 +3,11 @@
   "productName": "Multi Claude Desktop",
   "version": "0.1.0",
   "description": "Run several Claude Desktop accounts side by side, one isolated profile folder each",
+  "author": "tohidmalik002 (https://github.com/tohidmalik002)",
+  "homepage": "https://github.com/tohidmalik002/multi-claude-desktop",
+  "bugs": {
+    "url": "https://github.com/tohidmalik002/multi-claude-desktop/issues"
+  },
   "main": "src/main.js",
   "private": true,
   "scripts": {

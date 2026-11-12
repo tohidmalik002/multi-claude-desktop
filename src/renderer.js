@@ -44,6 +44,8 @@ const ui = {
   platformLabel: document.getElementById('platform-label'),
   profileCount: document.getElementById('profile-count'),
   appShortcut: document.getElementById('btn-app-shortcut'),
+  appVersion: document.getElementById('app-version'),
+  repo: document.getElementById('btn-repo'),
   toast: document.getElementById('toast'),
   modal: document.getElementById('modal'),
   cancelNew: document.getElementById('btn-cancel-new'),
@@ -381,6 +383,7 @@ function renderDetail() {
   ui.empty.hidden = !state.configured || state.profiles.length > 0;
 
   const profile = state.profiles.find((candidate) => candidate.slug === selectedSlug);
+  ui.detail.hidden = !profile;
   if (!profile) {
     return;
   }
@@ -416,6 +419,7 @@ function render() {
   ui.platformLabel.textContent = state.platform === 'win32'
     ? 'Windows · one folder per account'
     : 'Linux · one folder per account';
+  ui.appVersion.textContent = state.appVersion ? `v${state.appVersion}` : '';
   ui.profileCount.textContent = state.profiles.length > 0 ? String(state.profiles.length) : '';
   ui.appShortcut.textContent = state.appShortcut
     ? 'Remove launcher from desktop'
@@ -513,6 +517,8 @@ function bindEvents() {
   });
 
   ui.openRoot.addEventListener('click', () => api.openRoot());
+
+  ui.repo.addEventListener('click', () => api.openRepo());
 
   ui.appShortcut.addEventListener('click', async () => {
     try {
