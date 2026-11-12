@@ -1,14 +1,13 @@
-'use strict';
-
 /**
  * Bridge between the sandboxed renderer and the main process.
  *
  * Only these calls exist; the renderer has no Node access.
  */
 
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
+import type { AppState, ClaudeProfilesApi } from '../shared/types';
 
-contextBridge.exposeInMainWorld('claudeProfiles', {
+const api: ClaudeProfilesApi = {
   list: () => ipcRenderer.invoke('profiles:list'),
   create: (name) => ipcRenderer.invoke('profiles:create', name),
   open: (slug) => ipcRenderer.invoke('profiles:open', slug),
@@ -24,6 +23,8 @@ contextBridge.exposeInMainWorld('claudeProfiles', {
   openRoot: () => ipcRenderer.invoke('settings:open-root'),
   openRepo: () => ipcRenderer.invoke('app:open-repo'),
   onState: (handler) => {
-    ipcRenderer.on('profiles:state', (_event, state) => handler(state));
+    ipcRenderer.on('profiles:state', (_event, state: AppState) => handler(state));
   },
-});
+};
+
+contextBridge.exposeInMainWorld('claudeProfiles', api);

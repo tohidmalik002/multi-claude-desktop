@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Renderer: sidebar of profiles, detail pane with the launch action.
  *
@@ -9,59 +7,69 @@
 
 const api = window.claudeProfiles;
 
-let state = {
+let state: AppState = {
   profiles: [],
   configured: true,
   suggestedRoot: '',
-  libraryRoot: '',
+  libraryRoot: null,
+  libraryRootShort: '',
   desktopPath: null,
   platform: 'win32',
   nextProfileName: '',
   appShortcut: false,
+  appVersion: '',
 };
 
-let selectedSlug = null;
-let toastTimer = null;
+let selectedSlug: string | null = null;
+let toastTimer: number | null = null;
 let renderedStateKey = '';
-let renderedSelection = null;
+let renderedSelection: string | null = null;
+
+function byId<T extends HTMLElement>(id: string): T {
+  const node = document.getElementById(id);
+  if (!node) {
+    throw new Error(`Missing element #${id}`);
+  }
+  return node as T;
+}
 
 const ui = {
-  list: document.getElementById('profile-list'),
-  detail: document.getElementById('detail'),
-  empty: document.getElementById('empty'),
-  setup: document.getElementById('setup'),
-  setupPath: document.getElementById('setup-path'),
-  useSuggested: document.getElementById('btn-use-suggested'),
-  chooseRoot: document.getElementById('btn-choose-root'),
-  setupShortcut: document.getElementById('setup-shortcut'),
-  emptyNew: document.getElementById('btn-empty-new'),
-  refresh: document.getElementById('btn-refresh'),
-  newButton: document.getElementById('btn-new'),
-  newForm: document.getElementById('new-form'),
-  newName: document.getElementById('new-name'),
-  rootPath: document.getElementById('root-path'),
-  openRoot: document.getElementById('btn-open-root'),
-  changeRoot: document.getElementById('btn-change-root'),
-  platformLabel: document.getElementById('platform-label'),
-  profileCount: document.getElementById('profile-count'),
-  appShortcut: document.getElementById('btn-app-shortcut'),
-  appVersion: document.getElementById('app-version'),
-  repo: document.getElementById('btn-repo'),
-  toast: document.getElementById('toast'),
-  modal: document.getElementById('modal'),
-  cancelNew: document.getElementById('btn-cancel-new'),
+  list: byId<HTMLUListElement>('profile-list'),
+  detail: byId<HTMLElement>('detail'),
+  empty: byId<HTMLElement>('empty'),
+  setup: byId<HTMLElement>('setup'),
+  setupPath: byId<HTMLElement>('setup-path'),
+  useSuggested: byId<HTMLButtonElement>('btn-use-suggested'),
+  chooseRoot: byId<HTMLButtonElement>('btn-choose-root'),
+  setupShortcut: byId<HTMLInputElement>('setup-shortcut'),
+  emptyNew: byId<HTMLButtonElement>('btn-empty-new'),
+  refresh: byId<HTMLButtonElement>('btn-refresh'),
+  newButton: byId<HTMLButtonElement>('btn-new'),
+  newForm: byId<HTMLFormElement>('new-form'),
+  newName: byId<HTMLInputElement>('new-name'),
+  rootPath: byId<HTMLDivElement>('root-path'),
+  openRoot: byId<HTMLButtonElement>('btn-open-root'),
+  changeRoot: byId<HTMLButtonElement>('btn-change-root'),
+  platformLabel: byId<HTMLDivElement>('platform-label'),
+  profileCount: byId<HTMLElement>('profile-count'),
+  appShortcut: byId<HTMLButtonElement>('btn-app-shortcut'),
+  appVersion: byId<HTMLElement>('app-version'),
+  repo: byId<HTMLButtonElement>('btn-repo'),
+  toast: byId<HTMLDivElement>('toast'),
+  modal: byId<HTMLDivElement>('modal'),
+  cancelNew: byId<HTMLButtonElement>('btn-cancel-new'),
 };
 
 
 /**
  * Creates a DOM node with an optional class and text.
  *
- * @param {string} tag - Element name.
- * @param {string} [className] - CSS classes to apply.
- * @param {string} [text] - Text content.
- * @returns {HTMLElement} The new node.
+ * @param tag - Element name.
+ * @param [className] - CSS classes to apply.
+ * @param [text] - Text content.
+ * @returns The new node.
  */
-function element(tag, className, text) {
+function element(tag: string, className?: string, text?: string): HTMLElement {
   const node = document.createElement(tag);
   if (className) {
     node.className = className;
@@ -79,10 +87,10 @@ function element(tag, className, text) {
  * Names are handles such as "claude-work" or "claude-acme-ltd", so the prefix
  * and the separators are removed before taking initials.
  *
- * @param {string} name - e.g. "claude-acme-ltd".
- * @returns {string} e.g. "AL", or "C" when the name carries no word.
+ * @param name - e.g. "claude-acme-ltd".
+ * @returns e.g. "AL", or "C" when the name carries no word.
  */
-function initials(name) {
+function initials(name: string): string {
   const words = String(name)
     .replace(/^claude[-\s]*/i, '')
     .split(/[-_\s]+/)
@@ -99,10 +107,10 @@ function initials(name) {
 /**
  * Picks a stable avatar colour class from the profile slug.
  *
- * @param {string} slug - Profile slug.
- * @returns {string} e.g. "avatar-3".
+ * @param slug - Profile slug.
+ * @returns e.g. "avatar-3".
  */
-function avatarClass(slug) {
+function avatarClass(slug: string): string {
   const total = String(slug).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return `avatar-${total % 6}`;
 }
@@ -111,10 +119,10 @@ function avatarClass(slug) {
 /**
  * Shortens an account UUID for display.
  *
- * @param {string|null} accountId - Full UUID from config.json.
- * @returns {string} First eight characters, or an empty string.
+ * @param accountId - Full UUID from config.json.
+ * @returns First eight characters, or an empty string.
  */
-function shortId(accountId) {
+function shortId(accountId: string | null): string {
   return accountId ? accountId.slice(0, 8) : '';
 }
 
@@ -122,9 +130,9 @@ function shortId(accountId) {
 /**
  * Opens the "New profile" dialog.
  *
- * @returns {void}
+ * @returns
  */
-function openNewProfileDialog() {
+function openNewProfileDialog(): void {
   ui.modal.hidden = false;
   ui.newName.value = '';
   ui.newName.placeholder = state.nextProfileName || 'claude-1';
@@ -135,9 +143,9 @@ function openNewProfileDialog() {
 /**
  * Closes the "New profile" dialog.
  *
- * @returns {void}
+ * @returns
  */
-function closeNewProfileDialog() {
+function closeNewProfileDialog(): void {
   ui.modal.hidden = true;
 }
 
@@ -145,11 +153,11 @@ function closeNewProfileDialog() {
 /**
  * Shows a short message in the bottom-right corner.
  *
- * @param {string} message - Text to display.
- * @param {boolean} [isError] - Styles the toast as an error.
- * @returns {void}
+ * @param message - Text to display.
+ * @param [isError] - Styles the toast as an error.
+ * @returns
  */
-function showToast(message, isError = false) {
+function showToast(message: string, isError = false): void {
   // Errors thrown in the main process arrive wrapped by Electron's IPC layer.
   const text = String(message).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 
@@ -157,7 +165,7 @@ function showToast(message, isError = false) {
   ui.toast.classList.toggle('is-error', isError);
   ui.toast.hidden = false;
 
-  clearTimeout(toastTimer);
+  clearTimeout(toastTimer ?? undefined);
   toastTimer = setTimeout(() => {
     ui.toast.hidden = true;
   }, isError ? 10000 : 4000);
@@ -167,9 +175,9 @@ function showToast(message, isError = false) {
 /**
  * Keeps the selection valid after profiles or the library folder change.
  *
- * @returns {void}
+ * @returns
  */
-function ensureSelection() {
+function ensureSelection(): void {
   const stillExists = state.profiles.some((profile) => profile.slug === selectedSlug);
   if (stillExists) {
     return;
@@ -182,12 +190,12 @@ function ensureSelection() {
 /**
  * Renders the sidebar entry for one profile.
  *
- * @param {object} profile - Profile record from the main process.
- * @returns {HTMLLIElement} List item ready to append.
+ * @param profile - Profile record from the main process.
+ * @returns List item ready to append.
  */
-function buildProfileItem(profile) {
-  const item = element('li');
-  const button = element('button', 'profile-item');
+function buildProfileItem(profile: ProfileView): HTMLLIElement {
+  const item = element('li') as HTMLLIElement;
+  const button = element('button', 'profile-item') as HTMLButtonElement;
   button.type = 'button';
 
   if (profile.slug === selectedSlug) {
@@ -223,9 +231,9 @@ function buildProfileItem(profile) {
 /**
  * Renders the whole sidebar list.
  *
- * @returns {void}
+ * @returns
  */
-function renderList() {
+function renderList(): void {
   ui.list.textContent = '';
 
   if (state.profiles.length === 0) {
@@ -245,9 +253,9 @@ function renderList() {
  * Google sign-in finishes through a browser redirect, which hands the session
  * back to the default Claude window and can land on the wrong profile.
  *
- * @returns {HTMLElement} Notice node.
+ * @returns Notice node.
  */
-function buildSignInNotice() {
+function buildSignInNotice(): HTMLElement {
   const notice = element('div', 'notice');
   notice.append(element('strong', '', 'First launch: sign in with email + code'));
   notice.append(
@@ -265,20 +273,20 @@ function buildSignInNotice() {
 /**
  * Builds one label / value / action line of the profile card.
  *
- * @param {string} label - Left-hand label.
- * @param {string} value - Middle text, usually a path.
- * @param {boolean} monospace - Renders the value as code.
- * @param {Array<{label: string, action: string}>} actions - Buttons on the right.
- * @returns {HTMLElement} Row node.
+ * @param label - Left-hand label.
+ * @param value - Middle text, usually a path.
+ * @param monospace - Renders the value as code.
+ * @param actions - Buttons on the right.
+ * @returns Row node.
  */
-function buildRow(label, value, monospace, actions) {
+function buildRow(label: string, value: string, monospace: boolean, actions: Array<{label: string, action: string}>): HTMLElement {
   const row = element('div', 'row');
   row.append(element('span', 'row-label', label));
   row.append(element(monospace ? 'code' : 'span', 'row-value', value));
 
   const buttons = element('span', 'row-actions');
   for (const item of actions) {
-    const button = element('button', 'link', item.label);
+    const button = element('button', 'link', item.label) as HTMLButtonElement;
     button.type = 'button';
     button.dataset.action = item.action;
     buttons.append(button);
@@ -292,10 +300,10 @@ function buildRow(label, value, monospace, actions) {
 /**
  * Renders the detail pane for one profile.
  *
- * @param {object} profile - Profile record from the main process.
- * @returns {HTMLElement} Card node.
+ * @param profile - Profile record from the main process.
+ * @returns Card node.
  */
-function buildProfileCard(profile) {
+function buildProfileCard(profile: ProfileView): HTMLElement {
   const card = element('div', 'card');
 
   const head = element('header', 'card-head');
@@ -315,16 +323,16 @@ function buildProfileCard(profile) {
 
   title.append(status);
 
-  const launch = element('button', 'primary', profile.desktopOpen ? 'Focus window' : 'Launch');
+  const launch = element('button', 'primary', profile.desktopOpen ? 'Focus window' : 'Launch') as HTMLButtonElement;
   launch.type = 'button';
   launch.dataset.action = 'open';
 
-  const addShortcut = element('button', 'secondary', 'Add to desktop');
+  const addShortcut = element('button', 'secondary', 'Add to desktop') as HTMLButtonElement;
   addShortcut.type = 'button';
   addShortcut.dataset.action = 'make-shortcut';
   addShortcut.title = 'Creates another desktop shortcut for this profile each time you click it.';
 
-  const remove = element('button', 'icon-button');
+  const remove = element('button', 'icon-button') as HTMLButtonElement;
   remove.type = 'button';
   remove.dataset.action = 'delete';
   remove.title = 'Delete profile';
@@ -375,9 +383,9 @@ function buildProfileCard(profile) {
 /**
  * Renders the detail pane, or nothing when there is no selection.
  *
- * @returns {void}
+ * @returns
  */
-function renderDetail() {
+function renderDetail(): void {
   ui.detail.textContent = '';
   ui.setup.hidden = state.configured;
   ui.setupPath.textContent = state.suggestedRoot;
@@ -400,9 +408,9 @@ function renderDetail() {
  * when nothing changed makes rows and colours flicker, so identical snapshots
  * are ignored. A selection change still repaints even with identical data.
  *
- * @returns {void}
+ * @returns
  */
-function render() {
+function render(): void {
   const stateKey = JSON.stringify(state);
   if (stateKey === renderedStateKey && selectedSlug === renderedSelection) {
     return;
@@ -435,9 +443,9 @@ function render() {
 /**
  * Pulls fresh state from the main process and repaints.
  *
- * @returns {Promise<void>} Resolves after rendering.
+ * @returns Resolves after rendering.
  */
-async function reload() {
+async function reload(): Promise<void> {
   state = await api.list();
   ensureSelection();
   render();
@@ -448,10 +456,10 @@ async function reload() {
  * Completes the setup screen: stores the folder, then adds the launcher
  * shortcut when its box is ticked.
  *
- * @param {() => Promise<object>} chooseFolder - Stores a folder, returns state.
- * @returns {Promise<void>} Resolves after repainting.
+ * @param chooseFolder - Stores a folder, returns state.
+ * @returns Resolves after repainting.
  */
-async function finishSetup(chooseFolder) {
+async function finishSetup(chooseFolder: () => Promise<AppState>): Promise<void> {
   try {
     state = await chooseFolder();
     if (!state.configured) {
@@ -469,7 +477,7 @@ async function finishSetup(chooseFolder) {
     showToast(`Profiles will be stored in ${state.libraryRoot}`);
   }
   catch (error) {
-    showToast(error.message.split('\n')[0], true);
+    showToast((error instanceof Error ? error.message : String(error)).split('\n')[0], true);
   }
 }
 
@@ -477,9 +485,9 @@ async function finishSetup(chooseFolder) {
 /**
  * Wires sidebar, topbar and detail interactions.
  *
- * @returns {void}
+ * @returns
  */
-function bindEvents() {
+function bindEvents(): void {
   ui.newButton.addEventListener('click', openNewProfileDialog);
 
   ui.cancelNew.addEventListener('click', closeNewProfileDialog);
@@ -506,7 +514,7 @@ function bindEvents() {
       await reload();
     }
     catch (error) {
-      showToast(error.message, true);
+      showToast(error instanceof Error ? error.message : String(error), true);
     }
   });
 
@@ -519,7 +527,7 @@ function bindEvents() {
       render();
     }
     catch (error) {
-      showToast(error.message, true);
+      showToast(error instanceof Error ? error.message : String(error), true);
     }
   });
 
@@ -534,7 +542,7 @@ function bindEvents() {
       render();
     }
     catch (error) {
-      showToast(error.message, true);
+      showToast(error instanceof Error ? error.message : String(error), true);
     }
   });
 
@@ -556,12 +564,12 @@ function bindEvents() {
       showToast(`Launcher shortcut created: ${result.path}`);
     }
     catch (error) {
-      showToast(error.message.split('\n')[0], true);
+      showToast((error instanceof Error ? error.message : String(error)).split('\n')[0], true);
     }
   });
 
   ui.detail.addEventListener('click', async (event) => {
-    const target = event.target.closest('[data-action]');
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-action]');
     const action = target ? target.dataset.action : null;
     if (!action) {
       return;
@@ -596,7 +604,7 @@ function bindEvents() {
       }
     }
     catch (error) {
-      showToast(error.message.split('\n')[0], true);
+      showToast((error instanceof Error ? error.message : String(error)).split('\n')[0], true);
     }
   });
 
@@ -612,11 +620,11 @@ function bindEvents() {
 /**
  * Loads the first state snapshot and starts listening for updates.
  *
- * @returns {Promise<void>} Resolves once the UI is painted.
+ * @returns Resolves once the UI is painted.
  */
-async function start() {
+async function start(): Promise<void> {
   bindEvents();
   await reload();
 }
 
-start().catch((error) => showToast(error.message, true));
+start().catch((error: unknown) => showToast(error instanceof Error ? error.message : String(error), true));

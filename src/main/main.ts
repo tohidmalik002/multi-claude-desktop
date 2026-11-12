@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Main process: window shell and the profile commands behind it.
  *
@@ -8,16 +6,17 @@
  * cookies, history cache, window state and MCP config.
  */
 
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const { spawn } = require('node:child_process');
+import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { spawn } from 'node:child_process';
 
-const platform = require('./platform');
-const profiles = require('./profiles');
-const settings = require('./settings');
-const shortcuts = require('./shortcuts');
+import * as platform from './platform';
+import * as profiles from './profiles';
+import * as settings from './settings';
+import * as shortcuts from './shortcuts';
+import type { AppState, Profile } from '../shared/types';
 
 const STATE_REFRESH_MS = 2000;
 
@@ -26,18 +25,18 @@ const REPO_URL = 'https://github.com/tohidmalik002/multi-claude-desktop';
 /** A window this young counts as its profile's even before it writes a log. */
 const BOOT_GRACE_MS = 30000;
 
-let mainWindow = null;
-let desktopWindows = [];
+let mainWindow: BrowserWindow | null = null;
+let desktopWindows: Array<{commandLine: string, startedAt: number}> = [];
 
 
 /**
  * Captures the window, retrying while the GPU compositor is still warming up.
  *
- * @param {BrowserWindow} window - Window to capture.
- * @returns {Promise<Electron.NativeImage>} Captured image.
+ * @param window - Window to capture.
+ * @returns Captured image.
  */
-async function captureWithRetry(window) {
-  let lastError = null;
+async function captureWithRetry(window: BrowserWindow): Promise<Electron.NativeImage> {
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
@@ -56,29 +55,29 @@ async function captureWithRetry(window) {
 /**
  * Creates the application window.
  *
- * @returns {void}
+ * @returns
  */
-function createWindow() {
+function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1080,
     height: 760,
     minWidth: 820,
     minHeight: 560,
     backgroundColor: '#262624',
-    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+    icon: path.join(__dirname, '..', '..', 'assets', 'icon.png'),
     title: 'Multi Claude Desktop',
     autoHideMenuBar: true,
     // Screenshot runs stay hidden so they never take keyboard focus.
     show: !process.env.CLAUDE_PROFILES_CAPTURE,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Dev helper: CLAUDE_PROFILES_CAPTURE=<png path> saves a screenshot of the UI.
   // Add CLAUDE_PROFILES_CAPTURE_DIALOG=1 to capture the New profile dialog.
@@ -86,14 +85,14 @@ function createWindow() {
     mainWindow.webContents.once('did-finish-load', () => {
       setTimeout(async () => {
         if (process.env.CLAUDE_PROFILES_CAPTURE_DIALOG) {
-          await mainWindow.webContents.executeJavaScript(
+          await mainWindow!.webContents.executeJavaScript(
             "document.getElementById('btn-new').click()",
           );
           await new Promise((resolve) => setTimeout(resolve, 400));
         }
 
-        const image = await captureWithRetry(mainWindow);
-        require('node:fs').writeFileSync(process.env.CLAUDE_PROFILES_CAPTURE, image.toPNG());
+        const image = await captureWithRetry(mainWindow!);
+        fs.writeFileSync(process.env.CLAUDE_PROFILES_CAPTURE!, image.toPNG());
         console.log('captured', process.env.CLAUDE_PROFILES_CAPTURE);
       }, 4000);
     });
@@ -117,10 +116,10 @@ function createWindow() {
  * Claude itself uses when it restarts into a Claude account, and with them
  * the launch goes straight into the profile folder, signed in or not.
  *
- * @param {string} slug - Profile slug.
- * @returns {string} Executable that was launched.
+ * @param slug - Profile slug.
+ * @returns Executable that was launched.
  */
-function openInDesktop(slug) {
+function openInDesktop(slug: string): string {
   const executable = platform.findDesktopExecutable();
   if (!executable) {
     throw new Error('Claude Desktop was not found. Set CLAUDE_DESKTOP_EXECUTABLE to its full path.');
@@ -139,11 +138,11 @@ function openInDesktop(slug) {
 /**
  * Reports whether a profile's own Claude log changed since a moment.
  *
- * @param {string} folder - Absolute profile folder.
- * @param {number} since - Epoch ms.
- * @returns {boolean} True when logs/main.log was written at or after since.
+ * @param folder - Absolute profile folder.
+ * @param since - Epoch ms.
+ * @returns True when logs/main.log was written at or after since.
  */
-function logWrittenSince(folder, since) {
+function logWrittenSince(folder: string, since: number): boolean {
   try {
     return fs.statSync(path.join(folder, 'logs', 'main.log')).mtimeMs >= since;
   }
@@ -156,9 +155,9 @@ function logWrittenSince(folder, since) {
 /**
  * Async scan for Claude Desktop processes, then pushes the new state.
  *
- * @returns {Promise<void>} Resolves after the renderer is updated.
+ * @returns Resolves after the renderer is updated.
  */
-async function refreshDesktopState() {
+async function refreshDesktopState(): Promise<void> {
   desktopWindows = await platform.listClaudeWindows();
   pushState();
 }
@@ -172,10 +171,10 @@ async function refreshDesktopState() {
  * folder. A real profile window keeps writing its own log, so a window older
  * than the boot grace only counts when that log moved after it started.
  *
- * @param {string} folder - Absolute profile folder.
- * @returns {boolean} True when a visible window is using the folder.
+ * @param folder - Absolute profile folder.
+ * @returns True when a visible window is using the folder.
  */
-function isDesktopRunning(folder) {
+function isDesktopRunning(folder: string): boolean {
   const target = path.normalize(folder).toLowerCase();
   const now = Date.now();
 
@@ -194,9 +193,9 @@ function isDesktopRunning(folder) {
 /**
  * Builds the payload rendered by the window.
  *
- * @returns {object} Profiles with their open state plus app paths.
+ * @returns Profiles with their open state plus app paths.
  */
-function buildState() {
+function buildState(): AppState {
   const libraryRoot = settings.getProfilesRoot();
 
   return {
@@ -221,9 +220,9 @@ function buildState() {
 /**
  * Sends the current state to the renderer.
  *
- * @returns {void}
+ * @returns
  */
-function pushState() {
+function pushState(): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }
@@ -235,10 +234,10 @@ function pushState() {
 /**
  * Looks up a profile by slug, throwing when it disappeared meanwhile.
  *
- * @param {string} slug - Profile slug.
- * @returns {object} Profile record.
+ * @param slug - Profile slug.
+ * @returns Profile record.
  */
-function findProfile(slug) {
+function findProfile(slug: string): Profile {
   const profile = profiles.listProfiles().find((candidate) => candidate.slug === slug);
   if (!profile) {
     throw new Error(`Profile "${slug}" was not found.`);
@@ -251,32 +250,32 @@ function findProfile(slug) {
 /**
  * Registers the IPC surface used by the renderer.
  *
- * @returns {void}
+ * @returns
  */
-function registerHandlers() {
+function registerHandlers(): void {
   ipcMain.handle('profiles:list', () => buildState());
 
-  ipcMain.handle('profiles:create', (_event, rawName) => {
+  ipcMain.handle('profiles:create', (_event, rawName: string) => {
     const profile = profiles.createProfile(rawName || '');
     pushState();
     return profile;
   });
 
-  ipcMain.handle('profiles:open', (_event, slug) => {
+  ipcMain.handle('profiles:open', (_event, slug: string) => {
     openInDesktop(slug);
     profiles.markUsed(slug);
     setTimeout(() => refreshDesktopState(), 2500);
     return buildState();
   });
 
-  ipcMain.handle('profiles:delete', async (_event, slug) => {
+  ipcMain.handle('profiles:delete', async (_event, slug: string) => {
     const profile = findProfile(slug);
 
     if (isDesktopRunning(profile.folder)) {
       throw new Error(`${profile.name} is open. Quit its Claude window first (tray icon, then Quit), then delete.`);
     }
 
-    const answer = await dialog.showMessageBox(mainWindow, {
+    const answer = await dialog.showMessageBox(mainWindow!, {
       type: 'warning',
       title: 'Delete profile',
       message: `Delete ${profile.name}?`,
@@ -297,22 +296,22 @@ function registerHandlers() {
       await profiles.removeProfile(slug);
     }
     catch (error) {
-      throw new Error(`Could not move ${profile.name} to the Recycle Bin. If its Claude still runs in the tray, quit it there and try again. (${error.message})`);
+      throw new Error(`Could not move ${profile.name} to the Recycle Bin. If its Claude still runs in the tray, quit it there and try again. (${error instanceof Error ? error.message : String(error)})`);
     }
 
     pushState();
     return { deleted: true, name: profile.name };
   });
 
-  ipcMain.handle('profiles:reveal', (_event, slug) => shell.openPath(profiles.folderFor(slug)));
+  ipcMain.handle('profiles:reveal', (_event, slug: string) => shell.openPath(profiles.folderFor(slug)));
 
-  ipcMain.handle('profiles:create-shortcut', (_event, slug) => {
+  ipcMain.handle('profiles:create-shortcut', (_event, slug: string) => {
     const shortcutFile = shortcuts.create(findProfile(slug));
     pushState();
     return { path: shortcutFile };
   });
 
-  ipcMain.handle('profiles:remove-shortcut', (_event, slug) => {
+  ipcMain.handle('profiles:remove-shortcut', (_event, slug: string) => {
     shortcuts.remove(findProfile(slug));
     pushState();
     return buildState();
@@ -336,7 +335,7 @@ function registerHandlers() {
   });
 
   ipcMain.handle('settings:choose-root', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const result = await dialog.showOpenDialog(mainWindow!, {
       title: 'Choose where Claude profiles are stored',
       defaultPath: settings.getProfilesRoot() || os.homedir(),
       properties: ['openDirectory', 'createDirectory'],

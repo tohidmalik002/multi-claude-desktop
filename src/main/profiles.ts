@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Profile library: folder layout, display names and account metadata.
  *
@@ -8,20 +6,21 @@
  * Claude Desktop or by the in-app web view.
  */
 
-const { shell } = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
+import { shell } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-const settings = require('./settings');
+import * as settings from './settings';
+import type { CreatedProfile, Profile } from '../shared/types';
 
 const DEFAULT_PREFIX = 'claude';
 
 /**
  * Absolute path of the library folder that contains every profile folder.
  *
- * @returns {string} e.g. C:\Users\me\claude-accounts
+ * @returns e.g. C:\Users\me\claude-accounts
  */
-function workRoot() {
+export function workRoot(): string {
   const root = settings.getProfilesRoot();
   if (!root) {
     throw new Error('Choose where profiles are stored first.');
@@ -33,31 +32,31 @@ function workRoot() {
 /**
  * Absolute path of the manifest that maps folder slugs to display names.
  *
- * @returns {string} Path of profiles.json.
+ * @returns Path of profiles.json.
  */
-function manifestPath() {
+function manifestPath(): string {
   return path.join(workRoot(), 'profiles.json');
 }
 
 /**
  * Creates the profile root when missing.
  *
- * @returns {void}
+ * @returns
  */
-function ensureWorkRoot() {
+function ensureWorkRoot(): void {
   fs.mkdirSync(workRoot(), { recursive: true });
 }
 
 /**
  * Reads the slug-to-name map, tolerating a missing or broken file.
  *
- * @returns {Record<string, string>} Display name per slug.
+ * @returns Display name per slug.
  */
-function readManifest() {
+function readManifest(): Record<string, string> {
   try {
     const raw = fs.readFileSync(manifestPath(), 'utf8');
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
   }
   catch {
     return {};
@@ -67,10 +66,10 @@ function readManifest() {
 /**
  * Writes the slug-to-name map to disk.
  *
- * @param {Record<string, string>} manifest - Display name per slug.
- * @returns {void}
+ * @param manifest - Display name per slug.
+ * @returns
  */
-function writeManifest(manifest) {
+function writeManifest(manifest: Record<string, string>): void {
   ensureWorkRoot();
   fs.writeFileSync(manifestPath(), `${JSON.stringify(manifest, null, 4)}\n`, 'utf8');
 }
@@ -78,10 +77,10 @@ function writeManifest(manifest) {
 /**
  * Converts a display name into a folder-safe slug.
  *
- * @param {string} displayName - e.g. "Claude Work (Acme)".
- * @returns {string} e.g. "claude-work-acme".
+ * @param displayName - e.g. "Claude Work (Acme)".
+ * @returns e.g. "claude-work-acme".
  */
-function slugify(displayName) {
+export function slugify(displayName: string): string {
   return String(displayName)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -94,10 +93,10 @@ function slugify(displayName) {
  * "Claude Work", "Claude-Work" and "work" all become "claude-work". The same
  * string is used as folder slug, window title and shortcut name.
  *
- * @param {string} value - Raw name from the dialog or from the manifest.
- * @returns {string} e.g. "claude-work", or an empty string for blank input.
+ * @param value - Raw name from the dialog or from the manifest.
+ * @returns e.g. "claude-work", or an empty string for blank input.
  */
-function toHandle(value) {
+function toHandle(value: string): string {
   const cleaned = String(value || '')
     .replace(/[\\/:*?"<>|]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -117,10 +116,10 @@ function toHandle(value) {
  * lowercase, hyphenated, no spaces. "Work" and "Acme Ltd" become "claude-work"
  * and "claude-acme-ltd", and the folder uses exactly the same string.
  *
- * @param {string} rawName - Text typed by the user; may be empty.
- * @returns {string|null} e.g. "claude-work", or null for blank input.
+ * @param rawName - Text typed by the user; may be empty.
+ * @returns e.g. "claude-work", or null for blank input.
  */
-function buildDisplayName(rawName) {
+function buildDisplayName(rawName: string): string | null {
   return toHandle(rawName) || null;
 }
 
@@ -131,9 +130,9 @@ function buildDisplayName(rawName) {
  * or Claude has used it (it holds Claude's "Local State" file). Any other
  * folder in the library, such as a copied app or an old backup, is ignored.
  *
- * @returns {string[]} Sorted slugs.
+ * @returns Sorted slugs.
  */
-function listSlugs() {
+function listSlugs(): string[] {
   if (!settings.isConfigured()) {
     return [];
   }
@@ -158,10 +157,10 @@ function listSlugs() {
 /**
  * Returns the lowest unused handle, e.g. "claude-1", "claude-2".
  *
- * @param {string[]} usedSlugs - Slugs that already exist.
- * @returns {string} e.g. "claude-2".
+ * @param usedSlugs - Slugs that already exist.
+ * @returns e.g. "claude-2".
  */
-function nextFreeName(usedSlugs) {
+function nextFreeName(usedSlugs: string[]): string {
   for (let number = 1; number <= 999; number += 1) {
     const candidate = `${DEFAULT_PREFIX}-${number}`;
     if (!usedSlugs.includes(candidate)) {
@@ -175,12 +174,13 @@ function nextFreeName(usedSlugs) {
 /**
  * Reads the account UUID stored by Claude Desktop in a profile folder.
  *
- * @param {string} folder - Absolute profile folder.
- * @returns {string|null} Account UUID, or null when the profile never signed in.
+ * @param folder - Absolute profile folder.
+ * @returns Account UUID, or null when the profile never signed in.
  */
-function readAccountId(folder) {
+function readAccountId(folder: string): string | null {
   try {
-    const config = JSON.parse(fs.readFileSync(path.join(folder, 'config.json'), 'utf8'));
+    const parsed: unknown = JSON.parse(fs.readFileSync(path.join(folder, 'config.json'), 'utf8'));
+    const config = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
     return typeof config.lastKnownAccountUuid === 'string' ? config.lastKnownAccountUuid : null;
   }
   catch {
@@ -191,21 +191,21 @@ function readAccountId(folder) {
 /**
  * Absolute path of the file that records when each profile was last launched.
  *
- * @returns {string} Path of last-used.json.
+ * @returns Path of last-used.json.
  */
-function lastUsedPath() {
+function lastUsedPath(): string {
   return path.join(workRoot(), 'last-used.json');
 }
 
 /**
  * Reads the launch times, tolerating a missing or broken file.
  *
- * @returns {Record<string, number>} Epoch ms per slug.
+ * @returns Epoch ms per slug.
  */
-function readLastUsed() {
+function readLastUsed(): Record<string, number> {
   try {
-    const parsed = JSON.parse(fs.readFileSync(lastUsedPath(), 'utf8'));
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed: unknown = JSON.parse(fs.readFileSync(lastUsedPath(), 'utf8'));
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
   }
   catch {
     return {};
@@ -215,10 +215,10 @@ function readLastUsed() {
 /**
  * Records that a profile was launched or created just now.
  *
- * @param {string} slug - Profile slug.
- * @returns {void}
+ * @param slug - Profile slug.
+ * @returns
  */
-function markUsed(slug) {
+export function markUsed(slug: string): void {
   const lastUsed = readLastUsed();
   lastUsed[slug] = Date.now();
   writeLastUsed(lastUsed);
@@ -227,10 +227,10 @@ function markUsed(slug) {
 /**
  * Writes the launch times to disk.
  *
- * @param {Record<string, number>} lastUsed - Epoch ms per slug.
- * @returns {void}
+ * @param lastUsed - Epoch ms per slug.
+ * @returns
  */
-function writeLastUsed(lastUsed) {
+function writeLastUsed(lastUsed: Record<string, number>): void {
   ensureWorkRoot();
   fs.writeFileSync(lastUsedPath(), `${JSON.stringify(lastUsed, null, 4)}
 `, 'utf8');
@@ -242,10 +242,10 @@ function writeLastUsed(lastUsed) {
  * Read once and then saved: a running Claude keeps writing its log, so
  * reading it on every refresh would make the list order keep changing.
  *
- * @param {string} folder - Absolute profile folder.
- * @returns {number} Epoch ms, 0 when unknown.
+ * @param folder - Absolute profile folder.
+ * @returns Epoch ms, 0 when unknown.
  */
-function guessLastUsed(folder) {
+function guessLastUsed(folder: string): number {
   for (const candidate of [path.join(folder, 'logs', 'main.log'), folder]) {
     try {
       return fs.statSync(candidate).mtimeMs;
@@ -261,9 +261,9 @@ function guessLastUsed(folder) {
 /**
  * Lists every profile with its folder and sign-in state, last used first.
  *
- * @returns {Array<{slug: string, name: string, folder: string, accountId: string|null, lastUsed: number}>}
+ * @returns
  */
-function listProfiles() {
+export function listProfiles(): Profile[] {
   const manifest = readManifest();
   const recorded = readLastUsed();
   const slugs = listSlugs();
@@ -296,10 +296,10 @@ function listProfiles() {
  * An empty name picks the next free number, so repeated calls give claude-1,
  * claude-2, claude-3 without the user inventing names.
  *
- * @param {string} rawName - Text typed by the user; may be empty.
- * @returns {{slug: string, name: string, folder: string, accountId: string|null, created: boolean}}
+ * @param rawName - Text typed by the user; may be empty.
+ * @returns
  */
-function createProfile(rawName) {
+export function createProfile(rawName: string): CreatedProfile {
   const usedSlugs = listSlugs();
   const name = buildDisplayName(rawName) || nextFreeName(usedSlugs);
   const slug = slugify(name);
@@ -322,10 +322,10 @@ function createProfile(rawName) {
  * The Recycle Bin, not a permanent delete, so a profile removed by mistake
  * can be restored with its sign-in and local sessions intact.
  *
- * @param {string} slug - Profile slug.
- * @returns {Promise<void>} Resolves once the folder is gone.
+ * @param slug - Profile slug.
+ * @returns Resolves once the folder is gone.
  */
-async function removeProfile(slug) {
+export async function removeProfile(slug: string): Promise<void> {
   const folder = folderFor(slug);
   if (fs.existsSync(folder)) {
     await shell.trashItem(folder);
@@ -346,9 +346,9 @@ async function removeProfile(slug) {
  * Shown as the dialog placeholder, so the user sees "claude-4" and can simply
  * press Enter instead of inventing a name.
  *
- * @returns {string} e.g. "claude-4".
+ * @returns e.g. "claude-4".
  */
-function nextProfileName() {
+export function nextProfileName(): string {
   return nextFreeName(listSlugs());
 }
 
@@ -356,20 +356,9 @@ function nextProfileName() {
 /**
  * Returns the folder of one profile.
  *
- * @param {string} slug - Profile slug.
- * @returns {string} Absolute folder path.
+ * @param slug - Profile slug.
+ * @returns Absolute folder path.
  */
-function folderFor(slug) {
+export function folderFor(slug: string): string {
   return path.join(workRoot(), slug);
 }
-
-module.exports = {
-  workRoot,
-  listProfiles,
-  markUsed,
-  removeProfile,
-  createProfile,
-  folderFor,
-  nextProfileName,
-  slugify,
-};

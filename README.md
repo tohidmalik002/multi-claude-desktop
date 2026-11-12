@@ -3,7 +3,7 @@
 A small **desktop launcher** that runs several **Claude Desktop** accounts side by side,
 each in its own isolated profile folder.
 
-Built with **Electron**. No accounts of its own, no tracking, no network calls.
+Built with **Electron + TypeScript**. No accounts of its own, no tracking, no network calls.
 
 Made by [**@tohidmalik002**](https://github.com/tohidmalik002) · License: MIT · Platform: Windows 10/11 (Linux experimental)
 
@@ -78,7 +78,7 @@ npm install
 npm run package
 ```
 
-The app is written to `dist/Multi Claude Desktop-win32-x64/Multi Claude Desktop.exe`.
+The app is written to `release/Multi Claude Desktop-win32-x64/Multi Claude Desktop.exe`.
 
 ## First run
 
@@ -107,13 +107,25 @@ npm start
 
 | Script | What it does |
 |---|---|
-| `npm start` | Runs the app with Electron from `src/`. |
-| `npm run package` | Builds the Windows app into `dist/` with electron-packager. |
+| `npm run build` | Compiles both TypeScript projects into `dist/` and copies the HTML/CSS. |
+| `npm start` | `build`, then launches Electron. |
+| `npm run typecheck` | Type-checks everything without writing files. |
+| `npm run package` | `build`, then packages the Windows app into `release/` with electron-packager. |
 | `npm run icon` | Regenerates `assets/icon.{ico,png}` (PowerShell, Windows). |
+
+### Build layout
+
+There are **two** TypeScript configs on purpose:
+
+- `tsconfig.json` → **main + preload**, emitted as **CommonJS** for Electron's Node side.
+- `tsconfig.renderer.json` → **renderer**, emitted as a plain browser script.
+
+The renderer can't import from `src/shared`, so it keeps a copy of the shared types in
+`src/renderer/global.d.ts`. Keep the two in sync.
 
 ### Requirements
 
-- **Node.js 20+** and npm.
+- **Node.js 20+** and npm (TypeScript is installed as a dev dependency).
 - **Windows 10/11** with Claude Desktop installed. On Linux, set `CLAUDE_DESKTOP_EXECUTABLE`
   if Claude is not in a standard location.
 
@@ -159,18 +171,27 @@ Set `CLAUDE_PROFILES_ROOT` to choose the library folder without the setup screen
 ```
 multi-claude-desktop/
 ├─ src/
-│  ├─ main.js        # window, IPC, launching Claude
-│  ├─ platform.js    # OS lookups: Claude executable, running windows, launch flags
-│  ├─ profiles.js    # profile folders, names, last-use order, delete
-│  ├─ settings.js    # library folder choice
-│  ├─ shortcuts.js   # desktop shortcuts (.lnk / .desktop)
-│  ├─ preload.js     # secure bridge for the UI
-│  ├─ renderer.js    # UI
-│  ├─ index.html
-│  └─ styles.css
-├─ assets/           # app icon
+│  ├─ main/                # Electron main process (Node)
+│  │  ├─ main.ts           # window, IPC, launching Claude
+│  │  ├─ platform.ts       # OS lookups: Claude executable, running windows, launch flags
+│  │  ├─ profiles.ts       # profile folders, names, last-use order, delete
+│  │  ├─ settings.ts       # library folder choice
+│  │  └─ shortcuts.ts      # desktop shortcuts (.lnk / .desktop)
+│  ├─ preload/
+│  │  └─ preload.ts        # secure window.claudeProfiles bridge (contextBridge)
+│  ├─ renderer/            # UI (sandboxed browser context)
+│  │  ├─ index.html
+│  │  ├─ styles.css
+│  │  ├─ renderer.ts
+│  │  └─ global.d.ts       # renderer-local types + window.claudeProfiles typing
+│  └─ shared/
+│     └─ types.ts          # types shared by main + preload
+├─ assets/                 # app icon
 ├─ scripts/
-│  └─ build-icon.ps1 # icon generator (npm run icon)
+│  ├─ copy-assets.js       # copies HTML/CSS into dist/
+│  └─ build-icon.ps1       # icon generator (npm run icon)
+├─ tsconfig.json
+├─ tsconfig.renderer.json
 ├─ package.json
 └─ LICENSE
 ```

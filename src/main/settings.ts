@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Persisted app settings.
  *
@@ -7,30 +5,30 @@
  * so the profiles can live on any drive on Windows or Linux.
  */
 
-const { app } = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
+import { app } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-const platform = require('./platform');
+import * as platform from './platform';
 
 /**
  * Absolute path of the settings file inside the app's user data folder.
  *
- * @returns {string} e.g. %APPDATA%\claude-profiles\settings.json
+ * @returns e.g. %APPDATA%\claude-profiles\settings.json
  */
-function settingsFile() {
+export function settingsFile(): string {
   return path.join(app.getPath('userData'), 'settings.json');
 }
 
 /**
  * Reads settings, returning an empty object when the file is missing or broken.
  *
- * @returns {Record<string, unknown>} Parsed settings.
+ * @returns Parsed settings.
  */
-function readSettings() {
+function readSettings(): Record<string, unknown> {
   try {
-    const parsed = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const parsed: unknown = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   }
   catch {
     return {};
@@ -48,9 +46,9 @@ const LIBRARY_MARKERS = ['profiles.json', 'last-used.json'];
  * A folder picked on the setup screen wins; CLAUDE_PROFILES_ROOT also counts
  * as a choice, so scripted installs skip the setup screen.
  *
- * @returns {string|null} Absolute path, e.g. C:\Users\me\claude-accounts.
+ * @returns Absolute path, e.g. C:\Users\me\claude-accounts.
  */
-function getProfilesRoot() {
+export function getProfilesRoot(): string | null {
   const stored = readSettings().profilesRoot;
   if (typeof stored === 'string' && stored.trim()) {
     return path.resolve(stored.trim());
@@ -67,18 +65,18 @@ function getProfilesRoot() {
 /**
  * Reports whether a profile library folder has been chosen.
  *
- * @returns {boolean} True once the setup screen was completed.
+ * @returns True once the setup screen was completed.
  */
-function isConfigured() {
+export function isConfigured(): boolean {
   return getProfilesRoot() !== null;
 }
 
 /**
  * Folder the setup screen suggests.
  *
- * @returns {string} Absolute path, e.g. C:\Users\me\claude-accounts.
+ * @returns Absolute path, e.g. C:\Users\me\claude-accounts.
  */
-function suggestedProfilesRoot() {
+export function suggestedProfilesRoot(): string {
   return platform.defaultProfilesRoot();
 }
 
@@ -90,13 +88,13 @@ function suggestedProfilesRoot() {
  * folder, or one that already is a library, is used as is; anything else gets
  * a claude-accounts folder inside it.
  *
- * @param {string} folder - Folder the user chose.
- * @returns {string} Absolute library folder.
+ * @param folder - Folder the user chose.
+ * @returns Absolute library folder.
  */
-function resolveLibraryFolder(folder) {
+function resolveLibraryFolder(folder: string): string {
   const chosen = path.resolve(folder);
 
-  let entries;
+  let entries: string[];
   try {
     entries = fs.readdirSync(chosen);
   }
@@ -114,10 +112,10 @@ function resolveLibraryFolder(folder) {
 /**
  * Stores the profile library folder and creates it.
  *
- * @param {string} folder - Folder the user chose.
- * @returns {string} Library folder actually used.
+ * @param folder - Folder the user chose.
+ * @returns Library folder actually used.
  */
-function setProfilesRoot(folder) {
+export function setProfilesRoot(folder: string): string {
   const library = resolveLibraryFolder(folder);
   fs.mkdirSync(library, { recursive: true });
 
@@ -129,11 +127,3 @@ function setProfilesRoot(folder) {
 
   return library;
 }
-
-module.exports = {
-  settingsFile,
-  getProfilesRoot,
-  isConfigured,
-  setProfilesRoot,
-  suggestedProfilesRoot,
-};

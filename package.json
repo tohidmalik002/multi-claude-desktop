@@ -8,16 +8,20 @@
   "bugs": {
     "url": "https://github.com/tohidmalik002/multi-claude-desktop/issues"
   },
-  "main": "src/main.js",
+  "main": "dist/main/main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "package": "electron-packager . \"Multi Claude Desktop\" --platform=win32 --arch=x64 --out=dist --overwrite --asar --executable-name=\"Multi Claude Desktop\" --icon=assets/icon.ico --ignore=^/dist --ignore=^/scripts",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-assets.js",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "package": "npm run build && electron-packager . \"Multi Claude Desktop\" --platform=win32 --arch=x64 --out=release --overwrite --asar --executable-name=\"Multi Claude Desktop\" --icon=assets/icon.ico --ignore=^/src --ignore=^/scripts --ignore=^/release --ignore=^/tsconfig",
     "icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-icon.ps1"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "electron": "^45.3.0",
-    "electron-packager": "^17.1.2"
+    "electron-packager": "^17.1.2",
+    "typescript": "^5.6.3"
   },
   "license": "MIT",
   "repository": {

@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Platform-specific lookups: profile root, Claude Desktop binary and the
  * command lines of running Claude Desktop processes.
@@ -8,31 +6,31 @@
  * normal binary or AppImage. Everything else in the app stays platform-neutral.
  */
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execFile, execFileSync } = require('node:child_process');
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { execFile, execFileSync } from 'node:child_process';
 
-const isWindows = process.platform === 'win32';
-const isLinux = process.platform === 'linux';
+export const isWindows = process.platform === 'win32';
+export const isLinux = process.platform === 'linux';
 
 /**
  * Folder suggested on the setup screen for the profile library.
  *
  * <home>/claude-accounts on every platform, e.g. C:\Users\me\claude-accounts.
  *
- * @returns {string} Absolute path.
+ * @returns Absolute path.
  */
-function defaultProfilesRoot() {
+export function defaultProfilesRoot(): string {
   return path.join(os.homedir(), 'claude-accounts');
 }
 
 /**
  * Candidate locations of the Claude Desktop executable for this platform.
  *
- * @returns {string[]} Absolute paths, most likely first.
+ * @returns Absolute paths, most likely first.
  */
-function desktopCandidates() {
+function desktopCandidates(): string[] {
   if (isWindows) {
     const localAppData = process.env.LOCALAPPDATA || '';
     return [
@@ -62,16 +60,17 @@ function desktopCandidates() {
  * to normal users, so existsSync answers false for a working alias. EACCES and
  * EPERM therefore count as "present".
  *
- * @param {string} target - Candidate path.
- * @returns {boolean} True when the file exists or access was denied by ACL.
+ * @param target - Candidate path.
+ * @returns True when the file exists or access was denied by ACL.
  */
-function canLaunch(target) {
+function canLaunch(target: string): boolean {
   try {
     fs.statSync(target);
     return true;
   }
   catch (error) {
-    return error.code === 'EACCES' || error.code === 'EPERM';
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === 'EACCES' || code === 'EPERM';
   }
 }
 
@@ -82,9 +81,9 @@ function canLaunch(target) {
  * An explicit CLAUDE_DESKTOP_EXECUTABLE wins, which is how a Linux AppImage
  * stored somewhere unusual can be wired in without editing the code.
  *
- * @returns {string|null} Executable path, or null when nothing is installed.
+ * @returns Executable path, or null when nothing is installed.
  */
-function findDesktopExecutable() {
+export function findDesktopExecutable(): string | null {
   const override = process.env.CLAUDE_DESKTOP_EXECUTABLE;
   if (override && override.trim() && canLaunch(override.trim())) {
     return override.trim();
@@ -106,9 +105,9 @@ function findDesktopExecutable() {
  * using it look blank. The real executable lives in the MSIX install folder,
  * which Get-AppxPackage reports without admin rights.
  *
- * @returns {string|null} Executable path with an icon, or the launch alias.
+ * @returns Executable path with an icon, or the launch alias.
  */
-function findDesktopIcon() {
+export function findDesktopIcon(): string | null {
   if (isWindows) {
     try {
       const output = execFileSync(
@@ -142,10 +141,10 @@ function findDesktopIcon() {
  * extra flags are the ones that restart uses, so the launch skips gateway
  * mode and opens the profile directly, signed in or not.
  *
- * @param {string} folder - Absolute profile folder.
- * @returns {string[]} Arguments for the Claude executable.
+ * @param folder - Absolute profile folder.
+ * @returns Arguments for the Claude executable.
  */
-function desktopLaunchArgs(folder) {
+export function desktopLaunchArgs(folder: string): string[] {
   const args = [`--user-data-dir=${folder}`];
   if (isWindows) {
     args.push('--claude-first-party-sign-in', '--restarted-by-app');
@@ -160,10 +159,10 @@ function desktopLaunchArgs(folder) {
  * Handles both quoted and unquoted --user-data-dir values and normalises case
  * and separators, so claude-1 never matches claude-10 by substring.
  *
- * @param {string} commandLine - Full process command line.
- * @returns {string|null} Normalised lowercase folder, or null.
+ * @param commandLine - Full process command line.
+ * @returns Normalised lowercase folder, or null.
  */
-function profileFolderFromCommandLine(commandLine) {
+export function profileFolderFromCommandLine(commandLine: string): string | null {
   const match = String(commandLine).match(/--user-data-dir=("?)([^"\s]+)\1/);
   const value = match && match[2];
 
@@ -178,15 +177,15 @@ function profileFolderFromCommandLine(commandLine) {
  * Window ids come from Get-Process, which is much cheaper, so steady-state
  * refreshes skip WMI entirely and only new windows trigger a query.
  */
-const windowLines = new Map();
+const windowLines = new Map<string, string | null>();
 
 /**
  * Runs one PowerShell command and returns stdout, or an empty string on error.
  *
- * @param {string} command - PowerShell script.
- * @returns {Promise<string>} Raw stdout.
+ * @param command - PowerShell script.
+ * @returns Raw stdout.
  */
-function runPowerShell(command) {
+function runPowerShell(command: string): Promise<string> {
   return new Promise((resolve) => {
     execFile(
       'powershell.exe',
@@ -203,11 +202,11 @@ const EPOCH_TICKS = 621355968000000000n;
 /**
  * Lists Claude processes that currently own a visible window.
  *
- * @returns {Promise<Array<{id: number, key: string, startedAt: number}>>}
+ * @returns
  * Process ids with a start-time key, so a recycled pid never reuses a cached
  * command line, plus the start time in epoch milliseconds.
  */
-async function listVisibleProcesses() {
+async function listVisibleProcesses(): Promise<Array<{id: number, key: string, startedAt: number}>> {
   const script = 'Get-Process -Name claude -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { "$($_.Id):$($_.StartTime.ToUniversalTime().Ticks)" }';
   const output = await runPowerShell(script);
 
@@ -229,11 +228,11 @@ async function listVisibleProcesses() {
 /**
  * Reads command lines for specific process ids.
  *
- * @param {number[]} ids - Process ids to look up.
- * @returns {Promise<Map<number, string>>} Command line per process id.
+ * @param ids - Process ids to look up.
+ * @returns Command line per process id.
  */
-async function readCommandLines(ids) {
-  const lines = new Map();
+async function readCommandLines(ids: number[]): Promise<Map<number, string>> {
+  const lines = new Map<number, string>();
   if (ids.length === 0) {
     return lines;
   }
@@ -264,10 +263,10 @@ async function readCommandLines(ids) {
  * process alive in the tray after the window closes, and a process-only scan
  * would report "running" forever.
  *
- * @returns {Promise<Array<{commandLine: string, startedAt: number}>>} One
+ * @returns One
  * entry per visible window; startedAt is 0 when unknown (Linux).
  */
-async function listClaudeWindows() {
+export async function listClaudeWindows(): Promise<Array<{commandLine: string, startedAt: number}>> {
   if (isWindows) {
     const visible = await listVisibleProcesses();
     const keys = new Set(visible.map((entry) => entry.key));
@@ -288,11 +287,11 @@ async function listClaudeWindows() {
 
     return visible
       .map((entry) => ({ commandLine: windowLines.get(entry.key), startedAt: entry.startedAt }))
-      .filter((entry) => entry.commandLine);
+      .filter((entry): entry is { commandLine: string, startedAt: number } => Boolean(entry.commandLine));
   }
 
   if (isLinux) {
-    return new Promise((resolve) => {
+    return new Promise<Array<{commandLine: string, startedAt: number}>>((resolve) => {
       execFile('ps', ['-eo', 'args'], (error, stdout) => {
         if (error) {
           resolve([]);
@@ -313,33 +312,21 @@ async function listClaudeWindows() {
 /**
  * Lists command lines of the Claude Desktop windows that are visible.
  *
- * @returns {Promise<string[]>} One command line per visible Claude window.
+ * @returns One command line per visible Claude window.
  */
-async function listClaudeCommandLines() {
+export async function listClaudeCommandLines(): Promise<string[]> {
   return (await listClaudeWindows()).map((entry) => entry.commandLine);
 }
 
 /**
  * Splits raw command output into trimmed non-empty lines.
  *
- * @param {string} text - Raw stdout from ps or PowerShell.
- * @returns {string[]} Non-empty lines.
+ * @param text - Raw stdout from ps or PowerShell.
+ * @returns Non-empty lines.
  */
-function splitLines(text) {
+function splitLines(text: string): string[] {
   return String(text)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 }
-
-module.exports = {
-  isWindows,
-  isLinux,
-  defaultProfilesRoot,
-  findDesktopExecutable,
-  findDesktopIcon,
-  desktopLaunchArgs,
-  listClaudeCommandLines,
-  listClaudeWindows,
-  profileFolderFromCommandLine,
-};

@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * Optional per-profile desktop shortcuts.
  *
@@ -8,13 +6,14 @@
  * opens exactly one account.
  */
 
-const { app, shell } = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
+import { app, shell } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-const platform = require('./platform');
+import * as platform from './platform';
+import type { Profile } from '../shared/types';
 
-const LAUNCHER_NAME = 'Multi Claude Desktop';
+export const LAUNCHER_NAME = 'Multi Claude Desktop';
 const LAUNCHER_SLUG = 'multi-claude-desktop';
 
 
@@ -25,11 +24,11 @@ const LAUNCHER_SLUG = 'multi-claude-desktop';
  * claude-work.lnk, claude-work (2).lnk, claude-work (3).lnk instead of
  * overwriting the same file.
  *
- * @param {{slug: string, name: string}} profile - Profile record.
- * @param {number} [index] - 1-based shortcut number.
- * @returns {string} e.g. C:\Users\me\Desktop\claude-work (2).lnk
+ * @param profile - Profile record.
+ * @param [index] - 1-based shortcut number.
+ * @returns e.g. C:\Users\me\Desktop\claude-work (2).lnk
  */
-function shortcutPath(profile, index = 1) {
+export function shortcutPath(profile: Profile, index = 1): string {
   const desktop = app.getPath('desktop');
 
   if (platform.isWindows) {
@@ -45,10 +44,10 @@ function shortcutPath(profile, index = 1) {
 /**
  * Escapes a profile name so it can be used inside a filename regex.
  *
- * @param {string} value - Raw profile name.
- * @returns {string} Regex-safe text.
+ * @param value - Raw profile name.
+ * @returns Regex-safe text.
  */
-function escapeRegExp(value) {
+function escapeRegExp(value: string): string {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -59,10 +58,10 @@ function escapeRegExp(value) {
  * One directory read covers every numbered shortcut, which keeps the frequent
  * status refresh cheap even with several profiles.
  *
- * @param {{slug: string, name: string}} profile - Profile record.
- * @returns {string[]} Existing shortcut paths, numbered first.
+ * @param profile - Profile record.
+ * @returns Existing shortcut paths, numbered first.
  */
-function listShortcuts(profile) {
+export function listShortcuts(profile: Profile): string[] {
   const desktop = app.getPath('desktop');
   const base = platform.isWindows ? profile.name : `claude-${profile.slug}`;
   const extension = platform.isWindows ? '.lnk' : '.desktop';
@@ -87,10 +86,10 @@ function listShortcuts(profile) {
 /**
  * Returns the first unused shortcut path for a profile.
  *
- * @param {{slug: string, name: string}} profile - Profile record.
- * @returns {string} Path that does not exist yet.
+ * @param profile - Profile record.
+ * @returns Path that does not exist yet.
  */
-function nextShortcutPath(profile) {
+export function nextShortcutPath(profile: Profile): string {
   for (let index = 1; index <= 99; index += 1) {
     const target = shortcutPath(profile, index);
     if (!fs.existsSync(target)) {
@@ -105,10 +104,10 @@ function nextShortcutPath(profile) {
 /**
  * Reports whether the profile already has a desktop shortcut.
  *
- * @param {{slug: string, name: string}} profile - Profile record.
- * @returns {boolean} True when the shortcut file exists.
+ * @param profile - Profile record.
+ * @returns True when the shortcut file exists.
  */
-function exists(profile) {
+export function exists(profile: Profile): boolean {
   return listShortcuts(profile).length > 0;
 }
 
@@ -116,10 +115,10 @@ function exists(profile) {
 /**
  * Creates the desktop shortcut for one profile.
  *
- * @param {{slug: string, name: string, folder: string}} profile - Profile record.
- * @returns {string} Path of the created shortcut.
+ * @param profile - Profile record.
+ * @returns Path of the created shortcut.
  */
-function create(profile) {
+export function create(profile: Profile): string {
   const executable = platform.findDesktopExecutable();
   if (!executable) {
     throw new Error('Claude Desktop was not found. Set CLAUDE_DESKTOP_EXECUTABLE to its full path.');
@@ -172,9 +171,9 @@ function create(profile) {
 /**
  * Absolute path of the launcher's own desktop shortcut.
  *
- * @returns {string} e.g. C:\Users\me\Desktop\Multi Claude Desktop.lnk
+ * @returns e.g. C:\Users\me\Desktop\Multi Claude Desktop.lnk
  */
-function appShortcutPath() {
+export function appShortcutPath(): string {
   const desktop = app.getPath('desktop');
 
   if (platform.isWindows) {
@@ -188,9 +187,9 @@ function appShortcutPath() {
 /**
  * Reports whether the launcher itself has a desktop shortcut.
  *
- * @returns {boolean} True when the shortcut file exists.
+ * @returns True when the shortcut file exists.
  */
-function appShortcutExists() {
+export function appShortcutExists(): boolean {
   try {
     return fs.existsSync(appShortcutPath());
   }
@@ -207,9 +206,9 @@ function appShortcutExists() {
  * development it is Electron, so the app folder is passed as an argument and
  * the shortcut still works.
  *
- * @returns {string} Path of the created shortcut.
+ * @returns Path of the created shortcut.
  */
-function createAppShortcut() {
+export function createAppShortcut(): string {
   const target = appShortcutPath();
   fs.mkdirSync(path.dirname(target), { recursive: true });
 
@@ -251,9 +250,9 @@ function createAppShortcut() {
 /**
  * Deletes the launcher's desktop shortcut when it exists.
  *
- * @returns {boolean} True when a file was removed.
+ * @returns True when a file was removed.
  */
-function removeAppShortcut() {
+export function removeAppShortcut(): boolean {
   const target = appShortcutPath();
 
   if (!fs.existsSync(target)) {
@@ -268,10 +267,10 @@ function removeAppShortcut() {
 /**
  * Deletes every desktop shortcut of a profile.
  *
- * @param {{slug: string, name: string}} profile - Profile record.
- * @returns {number} How many shortcuts were removed.
+ * @param profile - Profile record.
+ * @returns How many shortcuts were removed.
  */
-function remove(profile) {
+export function remove(profile: Profile): number {
   const existing = listShortcuts(profile);
 
   for (const target of existing) {
@@ -280,17 +279,3 @@ function remove(profile) {
 
   return existing.length;
 }
-
-module.exports = {
-  LAUNCHER_NAME,
-  appShortcutExists,
-  appShortcutPath,
-  create,
-  createAppShortcut,
-  exists,
-  listShortcuts,
-  nextShortcutPath,
-  remove,
-  removeAppShortcut,
-  shortcutPath,
-};
