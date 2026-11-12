@@ -32,10 +32,10 @@
         </div>
       </div>
       <div class="sidebar-foot">
-        <button class="link" id="btn-app-shortcut" type="button">Add launcher to desktop</button>
         <div class="about">
           <span id="app-version"></span> · by tohidmalik002 ·
-          <button class="link" id="btn-repo" type="button" title="Open the project on GitHub">GitHub</button>
+          <button class="link" id="btn-repo" type="button" title="Open the project on GitHub">GitHub</button> ·
+          <button class="link" id="btn-app-shortcut" type="button">+ Desktop shortcut</button>
         </div>
       </div>
     </aside>
@@ -60,6 +60,10 @@
           <button class="primary" id="btn-use-suggested" type="button">Use this folder</button>
           <button class="secondary" id="btn-choose-root" type="button">Choose another folder…</button>
         </div>
+        <label class="setup-check">
+          <input id="setup-shortcut" type="checkbox" checked />
+          Add a Multi Claude Desktop shortcut to my desktop
+        </label>
         <p class="setup-note">
           If the folder you choose already holds other files, a claude-accounts
           folder is created inside it. You can change this later.

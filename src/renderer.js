@@ -33,6 +33,7 @@ const ui = {
   setupPath: document.getElementById('setup-path'),
   useSuggested: document.getElementById('btn-use-suggested'),
   chooseRoot: document.getElementById('btn-choose-root'),
+  setupShortcut: document.getElementById('setup-shortcut'),
   emptyNew: document.getElementById('btn-empty-new'),
   refresh: document.getElementById('btn-refresh'),
   newButton: document.getElementById('btn-new'),
@@ -421,9 +422,10 @@ function render() {
     : 'Linux · one folder per account';
   ui.appVersion.textContent = state.appVersion ? `v${state.appVersion}` : '';
   ui.profileCount.textContent = state.profiles.length > 0 ? String(state.profiles.length) : '';
-  ui.appShortcut.textContent = state.appShortcut
-    ? 'Remove launcher from desktop'
-    : 'Add launcher to desktop';
+  ui.appShortcut.textContent = state.appShortcut ? '✓ Desktop shortcut' : '+ Desktop shortcut';
+  ui.appShortcut.title = state.appShortcut
+    ? 'A Multi Claude Desktop shortcut is on your desktop. Click to remove it.'
+    : 'Add a Multi Claude Desktop shortcut to your desktop.';
 
   renderList();
   renderDetail();
@@ -439,6 +441,36 @@ async function reload() {
   state = await api.list();
   ensureSelection();
   render();
+}
+
+
+/**
+ * Completes the setup screen: stores the folder, then adds the launcher
+ * shortcut when its box is ticked.
+ *
+ * @param {() => Promise<object>} chooseFolder - Stores a folder, returns state.
+ * @returns {Promise<void>} Resolves after repainting.
+ */
+async function finishSetup(chooseFolder) {
+  try {
+    state = await chooseFolder();
+    if (!state.configured) {
+      render();
+      return;
+    }
+
+    if (ui.setupShortcut.checked && !state.appShortcut) {
+      await api.createAppShortcut();
+      state = await api.list();
+    }
+
+    ensureSelection();
+    render();
+    showToast(`Profiles will be stored in ${state.libraryRoot}`);
+  }
+  catch (error) {
+    showToast(error.message.split('\n')[0], true);
+  }
 }
 
 
@@ -491,19 +523,9 @@ function bindEvents() {
     }
   });
 
-  ui.useSuggested.addEventListener('click', async () => {
-    try {
-      state = await api.useSuggestedRoot();
-      ensureSelection();
-      render();
-      showToast(`Profiles will be stored in ${state.libraryRoot}`);
-    }
-    catch (error) {
-      showToast(error.message, true);
-    }
-  });
+  ui.useSuggested.addEventListener('click', () => finishSetup(api.useSuggestedRoot));
 
-  ui.chooseRoot.addEventListener('click', () => ui.changeRoot.click());
+  ui.chooseRoot.addEventListener('click', () => finishSetup(api.chooseRoot));
 
   ui.changeRoot.addEventListener('click', async () => {
     try {
