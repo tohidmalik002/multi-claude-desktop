@@ -1,10 +1,17 @@
 # Builds assets/icon.ico and assets/icon.png.
 #
-# Design: two laptops on an ink tile. The left body is cream, the right body is
-# coral, and both screens are ink so the icon reads at 16 px without clutter.
+# Design: two rounded window frames overlapping diagonally on a dark tile.
+# The warm-white frame sits behind (upper left), the coral frame in front
+# (lower right). Both frames are hollow, so the white frame shows through the
+# coral one. A tile-coloured gap around the coral frame's outer edge keeps the
+# two apart where they cross.
+#
+# Geometry is defined on a 256-unit canvas. A 1024 px master is drawn once and
+# scaled down to every icon size, so small sizes stay smooth.
 #
 # Run:
-#   powershell -ExecutionPolicy Bypass -File tools\build-icon.ps1
+#   npm run icon
+#   (or: powershell -ExecutionPolicy Bypass -File scripts\build-icon.ps1)
 
 Add-Type -AssemblyName System.Drawing
 
@@ -13,14 +20,24 @@ $icoPath = Join-Path $appRoot 'assets\icon.ico'
 $pngPath = Join-Path $appRoot 'assets\icon.png'
 
 $sizes = 16, 24, 32, 48, 64, 128, 256
-$coral = [System.Drawing.Color]::FromArgb(255, 217, 119, 87)
-$ink = [System.Drawing.Color]::FromArgb(255, 31, 30, 29)
-$screen = [System.Drawing.Color]::FromArgb(255, 12, 11, 10)
-$cream = [System.Drawing.Color]::FromArgb(255, 245, 244, 239)
+$master = 1024
+$scale = $master / 256
+
+$tileColor = [System.Drawing.Color]::FromArgb(255, 31, 30, 29)
+$whiteColor = [System.Drawing.Color]::FromArgb(255, 245, 244, 239)
+$coralColor = [System.Drawing.Color]::FromArgb(255, 217, 119, 87)
+
+# Frame geometry in 256 units: width, height, corner radius, line thickness,
+# and the gap kept clear around the front frame.
+$frameW = 140
+$frameH = 100.8
+$frameR = 12.6
+$frameLine = 8.4
+$gap = 12
 
 function New-RoundedRectPath([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) {
   $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-  $d = $r * 2
+  $d = [Math]::Min($r * 2, [Math]::Min($w, $h))
   $path.AddArc($x, $y, $d, $d, 180, 90)
   $path.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
   $path.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
@@ -29,61 +46,72 @@ function New-RoundedRectPath([float]$x, [float]$y, [float]$w, [float]$h, [float]
   return $path
 }
 
-function New-LaptopParts([float]$centerX, [float]$size) {
-  $bodyWidth = $size * 0.34
-  $screenHeight = $size * 0.37
-  $baseWidth = $size * 0.42
-  $baseHeight = [Math]::Max($size * 0.055, 1.0)
-  $totalHeight = $screenHeight + $baseHeight
-
-  $left = $centerX - ($bodyWidth / 2)
-  $top = ($size - $totalHeight) / 2
-
-  $lid = New-RoundedRectPath $left $top $bodyWidth $screenHeight ($size * 0.045)
-  $bezel = [Math]::Max($size * 0.040, 1.0)
-  $glass = New-RoundedRectPath ($left + $bezel) ($top + $bezel) ($bodyWidth - (2 * $bezel)) ($screenHeight - (2 * $bezel)) ([Math]::Max($size * 0.02, 0.5))
-  $base = New-RoundedRectPath ($centerX - ($baseWidth / 2)) ($top + $screenHeight) $baseWidth $baseHeight ([Math]::Max($size * 0.025, 0.5))
-
-  return @($lid, $glass, $base)
+# Fills the ring between an outer and an inner rounded rectangle (256 units).
+# Each rectangle is @(x, y, w, h, radius); pass $null as inner for a solid fill.
+function Fill-Ring($canvas, $brush, $outer, $inner) {
+  $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $path.FillMode = [System.Drawing.Drawing2D.FillMode]::Alternate
+  foreach ($rect in @($outer, $inner)) {
+    if ($null -eq $rect) { continue }
+    $part = New-RoundedRectPath ($rect[0] * $scale) ($rect[1] * $scale) ($rect[2] * $scale) ($rect[3] * $scale) ($rect[4] * $scale)
+    $path.AddPath($part, $false)
+    $part.Dispose()
+  }
+  $canvas.FillPath($brush, $path)
+  $path.Dispose()
 }
 
+# A hollow frame with its top-left corner at ($x, $y).
+function Draw-Frame($canvas, [float]$x, [float]$y, $brush) {
+  $outer = @($x, $y, $frameW, $frameH, $frameR)
+  $inner = @(($x + $frameLine), ($y + $frameLine), ($frameW - 2 * $frameLine), ($frameH - 2 * $frameLine), ($frameR * 0.55))
+  Fill-Ring $canvas $brush $outer $inner
+}
+
+# Master image.
+$masterBitmap = New-Object System.Drawing.Bitmap $master, $master, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$canvas = [System.Drawing.Graphics]::FromImage($masterBitmap)
+$canvas.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+$canvas.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+$canvas.Clear([System.Drawing.Color]::Transparent)
+
+$tileBrush = New-Object System.Drawing.SolidBrush $tileColor
+$whiteBrush = New-Object System.Drawing.SolidBrush $whiteColor
+$coralBrush = New-Object System.Drawing.SolidBrush $coralColor
+
+$backX = 34
+$backY = 58
+$frontX = 82
+$frontY = 98
+
+Fill-Ring $canvas $tileBrush @(0, 0, 256, 256, 56) $null
+Draw-Frame $canvas $backX $backY $whiteBrush
+
+# Clear a gap around the coral frame's outer edge only, so the white frame
+# still shows through the coral frame's open middle.
+$gapOuter = @(($frontX - $gap), ($frontY - $gap), ($frameW + 2 * $gap), ($frameH + 2 * $gap), ($frameR + $gap))
+$gapInner = @($frontX, $frontY, $frameW, $frameH, $frameR)
+Fill-Ring $canvas $tileBrush $gapOuter $gapInner
+
+Draw-Frame $canvas $frontX $frontY $coralBrush
+
+$canvas.Dispose()
+$tileBrush.Dispose()
+$whiteBrush.Dispose()
+$coralBrush.Dispose()
+
+# Scale the master down to every icon size.
 $images = @()
 
 foreach ($size in $sizes) {
   $bitmap = New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  $canvas = [System.Drawing.Graphics]::FromImage($bitmap)
-  $canvas.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $canvas.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-  $canvas.Clear([System.Drawing.Color]::Transparent)
-
-  $inkBrush = New-Object System.Drawing.SolidBrush $ink
-  $coralBrush = New-Object System.Drawing.SolidBrush $coral
-  $creamBrush = New-Object System.Drawing.SolidBrush $cream
-  $screenBrush = New-Object System.Drawing.SolidBrush $screen
-
-  $tile = New-RoundedRectPath 0 0 $size $size ($size * 0.22)
-  $canvas.FillPath($inkBrush, $tile)
-
-  $leftParts = New-LaptopParts ([float]($size * 0.275)) ([float]$size)
-  $rightParts = New-LaptopParts ([float]($size * 0.725)) ([float]$size)
-
-  $canvas.FillPath($creamBrush, $leftParts[0])
-  $canvas.FillPath($screenBrush, $leftParts[1])
-  $canvas.FillPath($creamBrush, $leftParts[2])
-
-  $canvas.FillPath($coralBrush, $rightParts[0])
-  $canvas.FillPath($screenBrush, $rightParts[1])
-  $canvas.FillPath($coralBrush, $rightParts[2])
-
-  $canvas.Dispose()
-  $inkBrush.Dispose()
-  $coralBrush.Dispose()
-  $creamBrush.Dispose()
-  $screenBrush.Dispose()
-  $tile.Dispose()
-  foreach ($part in ($leftParts + $rightParts)) {
-    $part.Dispose()
-  }
+  $g = [System.Drawing.Graphics]::FromImage($bitmap)
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $g.Clear([System.Drawing.Color]::Transparent)
+  $g.DrawImage($masterBitmap, 0, 0, $size, $size)
+  $g.Dispose()
 
   $stream = New-Object System.IO.MemoryStream
   $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -96,6 +124,8 @@ foreach ($size in $sizes) {
 
   $bitmap.Dispose()
 }
+
+$masterBitmap.Dispose()
 
 # ICO container with PNG-compressed entries (Windows Vista and newer).
 $output = New-Object System.IO.MemoryStream
